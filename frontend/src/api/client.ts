@@ -15,7 +15,20 @@ export function request(path: string, init?: RequestInit): Promise<Response> {
 export async function fetchJson<T>(path: string): Promise<T> {
   const response = await request(path)
   if (!response.ok) {
-    throw new Error(`接口返回 ${response.status}，数据未更新`)
+    throw new Error(await readError(response))
   }
   return (await response.json()) as T
+}
+
+/** 读取 FastAPI 校验/业务错误原文；拿不到时再退回状态码说明。 */
+export async function readError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { detail?: unknown }
+    if (typeof payload.detail === 'string' && payload.detail.trim()) {
+      return payload.detail
+    }
+  } catch {
+    // 响应体不是 JSON 时忽略，走下面的兜底
+  }
+  return `接口返回 ${response.status}，数据未更新`
 }
